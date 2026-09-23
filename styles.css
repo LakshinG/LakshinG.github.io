@@ -391,6 +391,15 @@ li.open .pmore { grid-template-rows: 1fr; }
   overflow-wrap: anywhere;
 }
 
+.contact-alt {
+  display: block; width: fit-content; margin-top: 14px;
+  font-family: var(--sans); font-weight: 600;
+  font-size: clamp(1.05rem, 2.6vw, 1.4rem);
+  color: var(--ink); text-underline-offset: 5px;
+  overflow-wrap: anywhere;
+}
+.contact-alt:hover { color: var(--accent); }
+
 .foot {
   padding: 28px var(--gutter);
   border-top: 1px solid var(--rule);

@@ -36,6 +36,8 @@
 
   $("contact-email").textContent = S.email;
   $("contact-email").href = "mailto:" + S.email;
+  $("contact-linkedin").href = S.links.linkedin;
+  $("contact-linkedin").textContent = S.links.linkedin.replace(/^https?:\/\/(www\.)?/, "");
   $("foot-text").textContent = `© ${new Date().getFullYear()} ${S.name}. Built by hand with HTML, CSS, and JavaScript.`;
 
   // ---------- Live demo window ----------
