@@ -267,6 +267,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   color: var(--go-ink); background: var(--go);
   border: 0; border-radius: 999px; cursor: pointer;
   white-space: nowrap;
+  /* White ring, plus a thin green edge so the ring still shows on the light background. */
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 3.5px var(--go);
 }
 .try::before {
   content: ""; width: 0; height: 0;
