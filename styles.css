@@ -267,9 +267,16 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   color: var(--go-ink); background: var(--go);
   border: 0; border-radius: 999px; cursor: pointer;
   white-space: nowrap;
-  /* White ring, plus a thin green edge so the ring still shows on the light background. */
-  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 3.5px var(--go);
+  animation: try-pulse 2s ease-out infinite;
 }
+/* A green ring that swells out from the button and fades, to draw the eye to the demos. */
+@keyframes try-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--go) 65%, transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in srgb, var(--go) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--go) 0%, transparent); }
+}
+.try:hover, .try:focus-visible { animation: none; }
+@media (prefers-reduced-motion: reduce) { .try { animation: none; } }
 .try::before {
   content: ""; width: 0; height: 0;
   border-left: 7px solid currentColor; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
