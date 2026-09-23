@@ -12,7 +12,7 @@ window.SITE = {
   },
 
   about: [
-    "I study Computer Science and Statistics at UNC Chapel Hill. Class of 2028. Most of my work so far has been for doctors and researchers. At the Boerwinkle Lab I used a local Qwen model to pull seizure histories out of messy neurology notes, and at ACM I built an agent that fact-checks results against PubMed and OpenAlex. This fall I start a co-op at ViiV Healthcare.",
+    "I study Computer Science and Statistics at UNC Chapel Hill. Class of 2028. Most of my work so far has been in medical AI and software engineering. At the Boerwinkle Lab I used a local Qwen model to pull seizure histories out of messy neurology notes, and at ACM I built an agent that fact-checks results against PubMed and OpenAlex. This fall I start a co-op at ViiV Healthcare.",
     "I also like rebuilding tools I use every day, mostly to find out how they work. NovaKV started that way. It's a key-value store in Go, and when a node dies Raft elects a new leader and nothing gets lost. Around campus I'm in Edge Carolina, Game Dev, AI@UNC, the Analytics and Data Science club, and the Crypto Investment Club.",
   ],
 
