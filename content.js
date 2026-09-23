@@ -13,7 +13,7 @@ window.SITE = {
 
   about: [
     "I study Computer Science and Statistics at UNC Chapel Hill. Class of 2028. Most of my work so far has been in medical AI and software engineering. At the Boerwinkle Lab I used a local Qwen model to pull seizure histories out of messy neurology notes, and at ACM I built an agent that fact-checks results against PubMed and OpenAlex. This fall I start a co-op at ViiV Healthcare.",
-    "I also like rebuilding tools I use every day, mostly to find out how they work. NovaKV started that way. It's a key-value store in Go, and when a node dies Raft elects a new leader and nothing gets lost. Around campus I'm in Edge Carolina, Game Dev, AI@UNC, the Analytics and Data Science club, and the Crypto Investment Club.",
+    "I also worked as a full-stack developer at Venuehorn this past summer. On the backend I built FastAPI services that hand slow jobs to Celery workers, and added Pydantic validation that cut ingestion errors by 40%. I wrote a computer vision API where YOLOv8 spots objects in venue images and maps them to feature tags. On the front end I built the Next.js app with JWT sign-in and tested it against a simulated database of 5,000+ users, all running on PostgreSQL with Alembic migrations and pgvector.",
   ],
 
   // Tags are used for the filter buttons above the project list.
