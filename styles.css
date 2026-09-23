@@ -118,8 +118,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   padding: 9px 20px; border-radius: 999px;
   color: var(--go-ink); background: var(--go);
   font-size: 1rem; font-weight: 700; text-decoration: none; white-space: nowrap;
+  animation: try-pulse 2s ease-out infinite;
 }
 .tip a:hover { filter: brightness(1.12); }
+.tip a:hover, .tip a:focus-visible { animation: none; }
 
 /* Hero */
 .hero {
@@ -276,7 +278,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--go) 0%, transparent); }
 }
 .try:hover, .try:focus-visible { animation: none; }
-@media (prefers-reduced-motion: reduce) { .try { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .try, .tip a { animation: none; } }
 .try::before {
   content: ""; width: 0; height: 0;
   border-left: 7px solid currentColor; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
