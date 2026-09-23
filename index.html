@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lakshin Ganesha</title>
+  <meta name="description" content="Projects, experience, and contact details for Lakshin Ganesha, computer science student and software engineer.">
+  <meta name="theme-color" content="#F2F4F7" media="(prefers-color-scheme: light)" id="tc-light">
+  <meta name="theme-color" content="#10131C" media="(prefers-color-scheme: dark)" id="tc-dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 3'%3E%3Cpath fill='%233B3BD6' d='M1 0h1v1H1zM2 1h1v1H2zM0 2h3v1H0z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply the saved theme before first paint so the page doesn't flash.
+    try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="bar">
+    <a class="bar-name" href="#top" id="bar-name"></a>
+    <nav aria-label="Sections">
+      <ul>
+        <li><a href="#projects">Projects</a></li>
+        <li><a href="#experience">Experience</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+    <button class="theme" id="theme" type="button" aria-label="Switch color theme">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="tip" role="note">
+    <p>Want to see my work in action? Hit <strong>Try it here</strong> next to a project for a short demo, right on this page.</p>
+    <a href="#projects">Go to projects</a>
+  </div>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-name">
+      <canvas id="life" aria-hidden="true"></canvas>
+      <div class="hero-text">
+        <h1 id="hero-name"></h1>
+        <p class="hero-role" id="hero-role"></p>
+        <ul class="hero-links" id="hero-links"></ul>
+      </div>
+      <div class="life-controls">
+        <p>This is Conway’s Game of Life. Click or drag to add cells.</p>
+        <button type="button" id="life-toggle">Pause</button>
+        <button type="button" id="life-reset">Reset</button>
+      </div>
+    </section>
+
+    <section class="section" id="projects" aria-labelledby="projects-h">
+      <div class="section-head">
+        <h2 id="projects-h">Projects</h2>
+        <div class="filters" id="filters" role="group" aria-label="Filter projects by technology"></div>
+      </div>
+      <div id="featured"></div>
+      <ol class="projects" id="project-list"></ol>
+      <p class="empty" id="projects-empty" hidden>No projects use that technology yet. Choose All to see everything.</p>
+    </section>
+
+    <section class="section" id="experience" aria-labelledby="experience-h">
+      <h2 id="experience-h">Experience</h2>
+      <ol class="timeline" id="timeline"></ol>
+    </section>
+
+    <section class="section split" id="about" aria-labelledby="about-h">
+      <div>
+        <h2 id="about-h">About</h2>
+        <div class="prose" id="about-text"></div>
+      </div>
+      <div class="side">
+        <h3>Education</h3>
+        <div id="education"></div>
+        <h3>Skills</h3>
+        <dl class="skills" id="skills"></dl>
+      </div>
+    </section>
+
+    <section class="section contact" id="contact" aria-labelledby="contact-h">
+      <h2 id="contact-h">Get in touch</h2>
+      <a class="email" id="contact-email" href="#"></a>
+    </section>
+  </main>
+
+  <dialog class="demo" id="demo" aria-labelledby="demo-title">
+    <div class="demo-bar">
+      <div class="demo-head">
+        <h2 id="demo-title"></h2>
+        <p id="demo-note" hidden></p>
+      </div>
+      <a id="demo-open" target="_blank" rel="noopener">Open in new tab</a>
+      <button type="button" id="demo-close">Close</button>
+    </div>
+    <div class="demo-frame">
+      <p>Loading the demo…</p>
+      <iframe id="demo-iframe" title="Live project demo" loading="lazy" allow="clipboard-write; fullscreen"></iframe>
+    </div>
+  </dialog>
+
+  <footer class="foot">
+    <p id="foot-text"></p>
+  </footer>
+
+  <noscript><p class="noscript">This site needs JavaScript to show its content.</p></noscript>
+
+  <script src="content.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

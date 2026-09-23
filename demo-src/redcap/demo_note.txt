@@ -1,0 +1,34 @@
+Metadata:
+record_id: 1
+patient_id: demo-001
+document_reference_id: demo-doc-001
+note_date: 2026-03-02
+title: EMU Admission Note - Epilepsy Surgery Evaluation
+
+FICTIONAL NOTE WRITTEN FOR A PORTFOLIO DEMO. NOT A REAL PATIENT.
+
+Assessment and Plan
+Principal Problem: Localization-related (focal) epilepsy with impaired awareness seizures, intractable
+Alex Rivera is a 29 y.o. left handed male admitted to the EMU for epilepsy surgery evaluation.
+His seizures have not been controlled on two adequate anti-seizure medication trials, so his epilepsy is considered medically refractory.
+- Admit to EMU and initiate continuous video-EEG monitoring to localize seizure onset.
+- Anti-seizure medications: taper levetiracetam by 50% tonight. Continue lacosamide 200mg twice daily.
+Rescue Plan: lorazepam 2mg IV PRN for seizures longer than 3 minutes.
+
+HPI
+Mr. Rivera works full time as a warehouse supervisor. He is not currently driving because of his seizures.
+Seizure Onset Age: 17
+Seizure type 1: focal impaired awareness seizures. Rising epigastric sensation, then staring, lip smacking, and unresponsiveness for about 60 seconds, followed by confusion.
+Seizure Frequency: weekly, often in clusters of 2 to 3 events over one day.
+Previous Anti-seizure Drugs tried: lamotrigine (rash).
+Home medications: levetiracetam 1500mg twice daily, lacosamide 200mg twice daily. He reports irritability on levetiracetam.
+No history of prior epilepsy surgery, VNS, or RNS.
+No history of suicidal ideation.
+
+Past Medical History: Anxiety. Migraine headaches.
+Past Surgical History: Appendectomy (2015).
+
+Previous workup:
+MRI brain (1/2026): left mesial temporal sclerosis with left hippocampal atrophy. Otherwise normal.
+FDG-PET: not yet performed, ordered for this admission.
+fMRI and WADA: not performed.

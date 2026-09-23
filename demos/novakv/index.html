@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NovaKV Cluster Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../demo.css">
+  <style>
+    .top { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    svg.net { width: 100%; height: auto; display: block; }
+    .node-circle { stroke-width: 3; }
+    .node-label { font: 700 15px var(--sans); fill: var(--ink); text-anchor: middle; }
+    .node-role { font: 600 12px var(--sans); text-anchor: middle; }
+    .edge { stroke: var(--rule); stroke-width: 2; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    .card h3 { margin: 0; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .card .meta { color: var(--slate); font-size: 13px; margin: 2px 0 10px; }
+    .card.down { opacity: 0.55; }
+    .entries { display: flex; flex-wrap: wrap; gap: 4px; min-height: 26px; margin-bottom: 10px; }
+    .entry { font: 12px var(--mono); padding: 2px 6px; border-radius: 4px; border: 1px dashed var(--slate); }
+    .entry.committed { border-style: solid; border-color: var(--good); background: var(--good-soft); }
+    .entry.snap { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+    .kv { font: 12.5px var(--mono); margin: 0; padding: 0; list-style: none; }
+    .kv .ttl { color: var(--slate); }
+    .card .row { display: flex; gap: 6px; margin-top: 10px; }
+    .role-leader { background: var(--good-soft); color: var(--good); }
+    .role-follower { background: var(--accent-soft); color: var(--accent); }
+    .role-candidate { background: var(--warn-bg); color: var(--warn-ink); }
+    .role-down { background: var(--bad-soft); color: var(--bad); }
+    form.client { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    form.client input[name="key"] { width: 110px; }
+    form.client input[name="value"] { width: 150px; }
+    form.client input[name="ttl"] { width: 70px; }
+    .hint { color: var(--slate); font-size: 13px; margin: 10px 0 0; }
+    .sub { font-size: 13px; color: var(--slate); margin: -6px 0 10px; }
+    @media (max-width: 860px) {
+      .top { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="notice" role="note">
+    <strong>Interactive simulation, not the Go binary.</strong>
+    NovaKV is a Go server that talks gRPC and writes BoltDB files, which a browser can't run. This page reproduces its behavior in JavaScript, following the real server code: writes must go to the leader, reads work on any node, and each write commits once a majority has it. To run the real cluster, get the <a href="https://github.com/LakshinG/novakv" target="_blank" rel="noopener">source and setup steps on GitHub</a>.
+  </div>
+
+  <div class="wrap">
+    <h1>NovaKV cluster</h1>
+    <p class="lede">Three nodes replicate every write through Raft. Kill the leader and watch the other two elect a new one. Kill two nodes and writes stop, because there's no majority left to commit them.</p>
+
+    <div class="top">
+      <div class="panel">
+        <svg class="net" viewBox="0 0 600 270" aria-label="Cluster diagram" id="net">
+          <line class="edge" x1="110" y1="210" x2="300" y2="60"/>
+          <line class="edge" x1="300" y1="60" x2="490" y2="210"/>
+          <line class="edge" x1="110" y1="210" x2="490" y2="210"/>
+          <g id="nodes"></g>
+          <g id="dots"></g>
+        </svg>
+      </div>
+
+      <div class="panel">
+        <h2>Client</h2>
+        <p class="sub">Works like <code>cmd/client</code>: pick a node's gRPC port and send a command.</p>
+        <form class="client" id="client">
+          <select name="op" aria-label="Operation">
+            <option value="put">put</option>
+            <option value="get">get</option>
+            <option value="delete">delete</option>
+          </select>
+          <select name="node" aria-label="Target node" id="target"></select>
+          <input type="text" name="key" value="myKey" aria-label="Key" autocomplete="off" spellcheck="false">
+          <input type="text" name="value" value="Hello from NovaKV!" aria-label="Value" autocomplete="off">
+          <input type="number" name="ttl" min="0" placeholder="TTL s" aria-label="TTL in seconds (0 means no expiry)">
+          <button class="btn primary" type="submit">Send</button>
+        </form>
+        <p class="hint">TTL is optional. A background sweeper deletes the key when it expires, like Redis.</p>
+        <ol class="log" id="log" aria-live="polite" style="margin-top:12px"></ol>
+      </div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+    <p class="hint">Dashed entries are in a node's write-ahead log but not committed yet. Green entries are committed and applied. After 6 committed entries a node compacts its log into a snapshot (blue).</p>
+  </div>
+
+<script>
+(() => {
+  const POS = { node1: [110, 210], node2: [300, 60], node3: [490, 210] };
+  const PORT = { node1: 50051, node2: 50052, node3: 50053 };
+  const IDS = Object.keys(POS);
+  const HEARTBEAT = 600, MSG = 380, APPLY_TIMEOUT = 5000, SNAP_EVERY = 6;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const now = () => performance.now();
+
+  const nodes = {};
+  IDS.forEach((id) => (nodes[id] = {
+    id, alive: true, role: "follower", term: 1, votedFor: null,
+    log: [], snapIndex: 0, commit: 0, applied: 0, kv: {}, deadline: 0,
+  }));
+  // node1 bootstraps the cluster (BootstrapCluster in main.go); node2 and node3 join it.
+  nodes.node1.role = "leader";
+  IDS.forEach((id) => (nodes[id].deadline = now() + rand(1500, 4200)));
+
+  const $ = (id) => document.getElementById(id);
+  const svgNS = "http://www.w3.org/2000/svg";
+  const logEl = $("log");
+  function say(text, cls = "") {
+    const li = document.createElement("li");
+    li.textContent = text; if (cls) li.className = cls;
+    logEl.append(li); logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ---------- drawing ----------
+  function roleColor(n) {
+    if (!n.alive) return "var(--bad)";
+    return { leader: "var(--good)", follower: "var(--accent)", candidate: "#D9A400" }[n.role];
+  }
+  function draw() {
+    const g = $("nodes"); g.innerHTML = "";
+    for (const id of IDS) {
+      const n = nodes[id], [x, y] = POS[id];
+      const c = document.createElementNS(svgNS, "circle");
+      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 38);
+      c.setAttribute("class", "node-circle");
+      c.style.fill = "var(--surface)"; c.style.stroke = roleColor(n);
+      if (!n.alive) c.setAttribute("stroke-dasharray", "6 5");
+      const t = document.createElementNS(svgNS, "text");
+      t.setAttribute("x", x); t.setAttribute("y", y - 2); t.setAttribute("class", "node-label"); t.textContent = id;
+      const r = document.createElementNS(svgNS, "text");
+      r.setAttribute("x", x); r.setAttribute("y", y + 16); r.setAttribute("class", "node-role");
+      r.style.fill = roleColor(n); r.textContent = n.alive ? n.role : "down";
+      g.append(c, t, r);
+    }
+    for (const id of IDS) {
+      const n = nodes[id], ui = cardUI[id];
+      const role = n.alive ? n.role : "down";
+      ui.card.classList.toggle("down", !n.alive);
+      ui.badge.className = `badge role-${role}`; ui.badge.textContent = role;
+      ui.meta.textContent = `term ${n.term}, commit index ${n.commit}`;
+      ui.btn.className = "btn" + (n.alive ? " danger" : "");
+      ui.btn.textContent = n.alive ? "Kill (Ctrl+C)" : "Restart";
+      ui.ent.innerHTML = "";
+      if (n.snapIndex) {
+        const s = document.createElement("span"); s.className = "entry snap";
+        s.textContent = `snapshot @${n.snapIndex}`; ui.ent.append(s);
+      }
+      n.log.forEach((e, i) => {
+        const idx = n.snapIndex + i + 1;
+        const s = document.createElement("span");
+        s.className = "entry" + (idx <= n.commit ? " committed" : "");
+        s.textContent = `${idx} ${e.cmd.op} ${e.cmd.key}`;
+        ui.ent.append(s);
+      });
+      if (!n.log.length && !n.snapIndex) ui.ent.innerHTML = '<span class="meta" style="margin:0">log empty</span>';
+      ui.kv.innerHTML = "";
+      const keys = Object.keys(n.kv);
+      if (!keys.length) ui.kv.innerHTML = '<li class="ttl">no keys</li>';
+      for (const k of keys) {
+        const li = document.createElement("li"), item = n.kv[k];
+        li.textContent = `${k} = ${JSON.stringify(item.value)}`;
+        if (item.expires) {
+          const s = document.createElement("span"); s.className = "ttl";
+          s.textContent = `  (expires in ${Math.max(0, Math.ceil((item.expires - Date.now()) / 1000))}s)`;
+          li.append(s);
+        }
+        ui.kv.append(li);
+      }
+    }
+  }
+
+  // Node cards and the target picker are built once; draw() only updates their contents.
+  const cardUI = {};
+  for (const id of IDS) {
+    const card = document.createElement("div");
+    card.className = "panel card";
+    card.innerHTML = `<h3><span>${id} <span style="font-weight:400;color:var(--slate)">:${PORT[id]}</span></span>
+      <span class="badge"></span></h3><p class="meta"></p>
+      <div class="entries"></div><ul class="kv"></ul><div class="row"><button type="button" class="btn"></button></div>`;
+    const ui = { card, badge: card.querySelector(".badge"), meta: card.querySelector(".meta"),
+      ent: card.querySelector(".entries"), kv: card.querySelector(".kv"), btn: card.querySelector("button") };
+    ui.btn.addEventListener("click", () => (nodes[id].alive ? kill(nodes[id]) : restart(nodes[id])));
+    cardUI[id] = ui;
+    $("cards").append(card);
+  }
+  $("target").innerHTML = IDS.map((id) => `<option value="${id}">localhost:${PORT[id]} (${id})</option>`).join("");
+
+  function dot(from, to, color, ms = MSG) {
+    return new Promise((res) => {
+      const [x1, y1] = POS[from], [x2, y2] = POS[to];
+      const c = document.createElementNS(svgNS, "circle");
+      c.setAttribute("r", 6); c.style.fill = color;
+      $("dots").append(c);
+      const t0 = now();
+      (function step() {
+        const p = Math.min(1, (now() - t0) / ms);
+        c.setAttribute("cx", x1 + (x2 - x1) * p); c.setAttribute("cy", y1 + (y2 - y1) * p);
+        if (p < 1) requestAnimationFrame(step); else { c.remove(); res(); }
+      })();
+    });
+  }
+
+  // ---------- storage engine + FSM (internal/storage, internal/raft/fsm.go) ----------
+  function apply(n) {
+    while (n.applied < n.commit) {
+      n.applied++;
+      const e = n.log[n.applied - n.snapIndex - 1];
+      if (!e) continue;
+      const c = e.cmd;
+      if (c.op === "PUT") n.kv[c.key] = { value: c.value, expires: c.ttl ? e.at + c.ttl * 1000 : 0 };
+      if (c.op === "DELETE") delete n.kv[c.key];
+    }
+    // Log compaction: fold applied entries into a snapshot so the log doesn't grow forever.
+    const appliedInLog = n.applied - n.snapIndex;
+    if (appliedInLog >= SNAP_EVERY) {
+      n.log = n.log.slice(appliedInLog);
+      n.snapIndex = n.applied;
+      n.snapshot = JSON.parse(JSON.stringify(n.kv));
+    }
+  }
+  const lastIndex = (n) => n.snapIndex + n.log.length;
+
+  // ---------- replication ----------
+  // Leader pushes its log to a follower. Followers that fell behind get the snapshot first.
+  async function replicate(leader, fid) {
+    const f = nodes[fid];
+    await dot(leader.id, fid, "var(--good)");
+    if (!f.alive || !leader.alive || leader.role !== "leader") return false;
+    if (leader.term < f.term) return false;
+    f.term = leader.term; f.role = "follower"; f.votedFor = null;
+    f.deadline = now() + rand(1500, 4200);
+    if (f.applied < leader.snapIndex) {
+      f.kv = JSON.parse(JSON.stringify(leader.snapshot || {}));
+      f.snapIndex = leader.snapIndex; f.applied = leader.snapIndex; f.snapshot = leader.snapshot;
+      f.log = [];
+    }
+    const start = Math.max(f.snapIndex, Math.min(lastIndex(f), lastIndex(leader)));
+    f.log = f.log.slice(0, Math.max(0, start - f.snapIndex))
+      .concat(leader.log.slice(Math.max(0, start - leader.snapIndex)));
+    f.commit = Math.max(f.commit, Math.min(leader.commit, lastIndex(f)));
+    apply(f);
+    dot(fid, leader.id, "var(--good)");
+    return true;
+  }
+
+  async function heartbeat() {
+    for (const id of IDS) {
+      const n = nodes[id];
+      if (n.alive && n.role === "leader") {
+        IDS.filter((p) => p !== id && nodes[p].alive).forEach((p) => replicate(n, p));
+      }
+    }
+    draw();
+  }
+
+  // raft.Apply(data, 5*time.Second): append, replicate, commit on majority, or time out.
+  function raftApply(leader, cmd) {
+    return new Promise((resolve, reject) => {
+      leader.log.push({ term: leader.term, cmd, at: Date.now() });
+      const idx = lastIndex(leader);
+      draw();
+      let acks = 1, done = false;
+      const timer = setTimeout(() => {
+        if (!done) { done = true; reject(new Error("timed out enqueuing operation (no majority reachable)")); }
+      }, APPLY_TIMEOUT);
+      const tryCommit = () => {
+        if (done || acks < 2) return;
+        done = true; clearTimeout(timer);
+        leader.commit = Math.max(leader.commit, idx); apply(leader); draw();
+        resolve();
+      };
+      IDS.filter((p) => p !== leader.id && nodes[p].alive).forEach((p) =>
+        replicate(leader, p).then((ok) => { if (ok) { acks++; setTimeout(tryCommit, MSG); } }));
+      // Retry in case a follower comes back before the timeout.
+      const retry = setInterval(() => {
+        if (done) return clearInterval(retry);
+        if (!leader.alive || leader.role !== "leader") { done = true; clearInterval(retry); clearTimeout(timer); reject(new Error("leadership lost before commit")); }
+      }, 200);
+    });
+  }
+
+  // ---------- elections ----------
+  async function election(c) {
+    c.role = "candidate"; c.term++; c.votedFor = c.id;
+    c.deadline = now() + rand(1500, 4500);
+    say(`${c.id}: election timeout, starting election for term ${c.term}`, "sys");
+    draw();
+    let votes = 1;
+    const peers = IDS.filter((p) => p !== c.id && nodes[p].alive);
+    await Promise.all(peers.map(async (p) => {
+      await dot(c.id, p, "#D9A400", 220);
+      const v = nodes[p];
+      if (!v.alive || !c.alive) return;
+      if (c.term > v.term) { v.term = c.term; v.votedFor = null; if (v.role !== "follower") v.role = "follower"; }
+      const upToDate = lastIndex(c) >= lastIndex(v);
+      if (v.votedFor === null && upToDate) {
+        v.votedFor = c.id; v.deadline = now() + rand(1500, 4200);
+        await dot(p, c.id, "#D9A400", 220);
+        votes++;
+      }
+    }));
+    if (c.alive && c.role === "candidate" && votes >= 2) {
+      c.role = "leader";
+      say(`${c.id}: won ${votes} of 3 votes, now leader for term ${c.term}`, "ok");
+      heartbeat();
+    } else if (c.alive && c.role === "candidate") {
+      say(`${c.id}: only ${votes} vote, no majority. Will retry.`, "sys");
+    }
+    draw();
+  }
+
+  function kill(n) {
+    n.alive = false;
+    say(`${n.id}: killed. ${n.role === "leader" ? "The followers will notice missing heartbeats." : ""}`, "err");
+    n.role = "follower";
+    draw();
+  }
+  function restart(n) {
+    n.alive = true; n.role = "follower"; n.votedFor = null;
+    // In-memory map is rebuilt from the snapshot plus the BoltDB log on disk.
+    n.kv = JSON.parse(JSON.stringify(n.snapshot || {}));
+    n.applied = n.snapIndex; apply(n);
+    n.deadline = now() + rand(1500, 4200);
+    say(`${n.id}: restarted, replayed its log from disk (${n.commit} entries), waiting for the leader`, "sys");
+    draw();
+  }
+
+  // ---------- main loop ----------
+  // Election timeouts are checked often so two followers rarely fire in the same instant.
+  setInterval(() => {
+    const t = now();
+    for (const id of IDS) {
+      const n = nodes[id];
+      if (n.alive && n.role !== "leader" && t > n.deadline) election(n);
+    }
+  }, 40);
+  let lastBeat = 0;
+  setInterval(() => {
+    const t = now();
+    if (t - lastBeat > HEARTBEAT) { lastBeat = t; heartbeat(); }
+    // TTL sweeper
+    let changed = false;
+    for (const id of IDS) for (const [k, v] of Object.entries(nodes[id].kv)) {
+      if (v.expires && Date.now() > v.expires) { delete nodes[id].kv[k]; changed = true; }
+    }
+    if (changed) say("sweeper: removed expired keys", "sys");
+    draw();
+  }, 250);
+
+  // ---------- client (cmd/client/main.go) ----------
+  $("client").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const op = f.get("op"), n = nodes[f.get("node")], key = String(f.get("key")).trim();
+    const value = String(f.get("value")), ttl = Number(f.get("ttl")) || 0;
+    const cmdline = `client -addr localhost:${PORT[n.id]} ${op} ${key}${op === "put" ? ` "${value}"` : ""}`;
+    say("$ " + cmdline);
+    if (!key) return say("error: key is required", "err");
+    if (!n.alive) return say(`error: connection refused (${n.id} is down)`, "err");
+    if (op === "get") {
+      const item = n.kv[key];
+      return item ? say(`${key} = ${JSON.stringify(item.value)}  (read locally from ${n.id})`, "ok")
+                  : say(`key not found on ${n.id}`, "err");
+    }
+    if (n.role !== "leader") {
+      const leader = IDS.find((id) => nodes[id].alive && nodes[id].role === "leader");
+      return say(`error: not leader${leader ? ` (try ${leader} on :${PORT[leader]})` : ""}`, "err");
+    }
+    try {
+      await raftApply(n, op === "put" ? { op: "PUT", key, value, ttl } : { op: "DELETE", key });
+      say(`success: ${op.toUpperCase()} ${key} committed by a majority`, "ok");
+    } catch (err) {
+      say("error: " + err.message, "err");
+    }
+  });
+
+  say("node1 bootstrapped the cluster. node2 and node3 joined it.", "sys");
+  draw();
+})();
+</script>
+</body>
+</html>

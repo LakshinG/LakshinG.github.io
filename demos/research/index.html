@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Agent Replay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../demo.css">
+  <style>
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+    .paper { padding: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--fog); font-size: 14px; }
+    .paper + .paper { margin-top: 10px; }
+    .paper strong { display: block; font-size: 13px; margin-bottom: 4px; }
+    .qs { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .qs button { text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--rule); background: var(--fog); cursor: pointer; }
+    .qs button:hover { border-color: var(--slate); }
+    .qs button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+    .steps { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--slate); margin: 0 0 12px; padding: 0; list-style: none; }
+    .steps li { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); }
+    .steps li.done { color: var(--good); border-color: var(--good); }
+    .chunks { display: grid; gap: 8px; margin-bottom: 16px; }
+    .chunk { font-size: 13.5px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--fog); border-radius: 0 6px 6px 0; }
+    .chunk small { display: block; color: var(--slate); }
+    .critique { font-size: 14.5px; line-height: 1.6; }
+    .critique h3, .critique h4 { font-size: 1rem; margin: 14px 0 6px; }
+    .critique ul, .critique ol { margin: 4px 0; padding-left: 22px; }
+    .critique p { margin: 6px 0; }
+    .empty { color: var(--slate); }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="notice" role="note">
+    <strong>Recorded replay, not a live agent.</strong>
+    The real system runs on AWS with an LLM behind it, which costs money to keep up, so this page replays saved output. Every answer below came from the project's own ingestion, hybrid retrieval (ChromaDB + BM25), and critic code, run on the two sample papers in the repo. One swap: the critic used Qwen 2.5 7B running locally instead of Gemini, because Gemini needs an API key. <a href="https://github.com/LakshinG/Cloud-Native-AI-Research-Agent" target="_blank" rel="noopener">Run it yourself from GitHub</a>.
+  </div>
+
+  <div class="wrap">
+    <h1>Cloud-Native AI Research Agent</h1>
+    <p class="lede">Ask about a claim and the agent pulls matching passages from the papers, then a critic model points out where the papers disagree and why.</p>
+
+    <div class="layout">
+      <aside class="panel">
+        <h2>Papers in the index</h2>
+        <div id="papers"></div>
+      </aside>
+
+      <section class="panel">
+        <h2>Pick a question</h2>
+        <div class="qs" id="qs"></div>
+        <ol class="steps" id="steps">
+          <li>Retrieve passages</li><li>Critic analysis</li>
+        </ol>
+        <div id="answer"><p class="empty">Choose a question to see what the agent retrieved and what the critic concluded.</p></div>
+      </section>
+    </div>
+  </div>
+
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const data = await fetch("snapshot.json").then((r) => r.json());
+
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // Small Markdown renderer for the critic's output: headings, bold, and nested lists.
+  function md(src) {
+    const out = []; const stack = [];
+    const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>");
+    const close = (depth) => { while (stack.length > depth) out.push(`</${stack.pop()}>`); };
+    for (const raw of src.split("\n")) {
+      const line = raw.replace(/\s+$/, "");
+      if (!line.trim()) continue;
+      const h = line.match(/^(#{1,6})\s+(.*)/);
+      const li = line.match(/^(\s*)([-*]|\d+\.)\s+(.*)/);
+      if (h) { close(0); out.push(`<h4>${inline(h[2])}</h4>`); }
+      else if (li) {
+        const depth = Math.floor(li[1].length / 3) + 1, tag = /\d/.test(li[2]) ? "ol" : "ul";
+        close(depth);
+        while (stack.length < depth) { stack.push(tag); out.push(`<${tag}>`); }
+        out.push(`<li>${inline(li[3])}</li>`);
+      } else { close(0); out.push(`<p>${inline(line)}</p>`); }
+    }
+    close(0);
+    return out.join("");
+  }
+
+  for (const p of data.papers) {
+    const d = document.createElement("div"); d.className = "paper";
+    d.innerHTML = `<strong>${esc(p.file)}</strong>${esc(p.text)}`;
+    $("papers").append(d);
+  }
+
+  const steps = [...$("steps").children];
+  let timer;
+  function show(i) {
+    [...$("qs").children].forEach((b, j) => b.setAttribute("aria-pressed", String(i === j)));
+    const r = data.results[i];
+    clearTimeout(timer);
+    steps.forEach((s) => s.classList.remove("done"));
+    $("answer").innerHTML = '<p class="empty">Retrieving…</p>';
+    timer = setTimeout(() => {
+      steps[0].classList.add("done");
+      const seen = new Set();
+      const chunks = r.documents.filter((d) => !seen.has(d.text) && seen.add(d.text));
+      $("answer").innerHTML = `<h3 style="font-size:.95rem;margin:0 0 8px">Retrieved ${chunks.length} passages</h3>
+        <div class="chunks">${chunks.map((d) => `<div class="chunk"><small>${esc(d.source)} (${esc(String(d.author))}, ${esc(String(d.year))})</small>${esc(d.text)}</div>`).join("")}</div>
+        <p class="empty">Critic is reading…</p>`;
+      timer = setTimeout(() => {
+        steps[1].classList.add("done");
+        $("answer").lastElementChild.outerHTML = `<h3 style="font-size:.95rem;margin:0 0 4px">Critic analysis (${esc(data.model)})</h3><div class="critique">${md(r.critique)}</div>`;
+      }, 700);
+    }, 500);
+  }
+  data.results.forEach((r, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = r.query; b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => show(i));
+    $("qs").append(b);
+  });
+})();
+</script>
+</body>
+</html>
