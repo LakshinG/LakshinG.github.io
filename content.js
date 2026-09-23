@@ -13,7 +13,7 @@ window.SITE = {
 
   about: [
     "I study Computer Science and Statistics at UNC Chapel Hill. Class of 2028. Most of my work so far has been in medical AI and software engineering. At the Boerwinkle Lab I used a local Qwen model to pull seizure histories out of messy neurology notes, and at ACM I built an agent that fact-checks results against PubMed and OpenAlex. This fall I start a co-op at ViiV Healthcare.",
-    "I also worked as a full-stack developer at Venuehorn this past summer. On the backend I built FastAPI services that hand slow jobs to Celery workers, and added Pydantic validation that cut ingestion errors by 40%. I wrote a computer vision API where YOLOv8 spots objects in venue images and maps them to feature tags. On the front end I built the Next.js app with JWT sign-in and tested it against a simulated database of 5,000+ users, all running on PostgreSQL with Alembic migrations and pgvector.",
+    "I also worked as a full-stack developer at Venuehorn this past summer. On the backend I built FastAPI services that hand slow jobs to Celery workers, and added Pydantic validation that cut ingestion errors by 40%. I wrote a computer vision API where YOLOv8 spots objects in venue images and maps them to feature tags. On the front end I built the Next.js app with JWT sign-in and tested it against a simulated database of 5,000+ users, all running on PostgreSQL with Alembic migrations and pgvector. Beyond the code, I helped build the MVP and kept each team organized around its deliverables for the upcoming soft launch in Massachusetts.",
   ],
 
   // Tags are used for the filter buttons above the project list.
@@ -109,6 +109,7 @@ window.SITE = {
         "Built a computer vision ingestion API with YOLOv8 and NumPy that maps detected objects to venue feature tags.",
         "Designed a Next.js frontend with JWT authentication, tuned to render a simulated database of 5,000+ users.",
         "Managed PostgreSQL schemas with Alembic migrations and pgvector indexing.",
+        "Helped build the MVP and coordinated each team's deliverables for the soft launch in Massachusetts.",
       ],
     },
     {
